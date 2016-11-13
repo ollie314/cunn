@@ -8,15 +8,17 @@
 // copied from cutorch/lib/THC/THCTensorRandom.cu
 #define MAX_NUM_BLOCKS 64
 #define BLOCK_SIZE 256
-#define NUM_BLOCKS(n) min((int)THCCeilDiv(n, (long) BLOCK_SIZE), MAX_NUM_BLOCKS)
+#define NUM_BLOCKS(n) min((int)THCCeilDiv(n, (ptrdiff_t) BLOCK_SIZE), MAX_NUM_BLOCKS)
 
 template<typename T>
 inline T __device__ curand_uniform_type(curandStateMtgp32 *state);
 
+#ifdef CUDA_HALF_TENSOR
 template <>
 inline half __device__ curand_uniform_type<half>(curandStateMtgp32 *state) {
   return ScalarConvert<float, half>::to(curand_uniform(state));
 }
+#endif
 
 template <>
 inline float __device__ curand_uniform_type<float>(curandStateMtgp32 *state) {

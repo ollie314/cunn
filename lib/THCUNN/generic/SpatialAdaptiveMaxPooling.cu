@@ -12,13 +12,14 @@ void THNN_(SpatialAdaptiveMaxPooling_updateOutput)(
            int nOutputCols,
            int nOutputRows)
 {
-  THCUNN_assertSameGPU_generic(state, 3, input, output, indices);
+  THCUNN_assertSameGPU(state, 3, input, output, indices);
 
   THCIndex_t *indices_data;
   real *output_data;
   real *input_data;
 
-  THArgCheck(input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch) tensor expected");
+  THCUNN_argCheck(state, input->nDimension == 3 || input->nDimension == 4, 2, input,
+                  "3D or 4D (batch mode) tensor expected for input, but got: %s");
 
   if (input->nDimension == 3) {
     long nInputCols = input->size[2];
@@ -95,7 +96,7 @@ void THNN_(SpatialAdaptiveMaxPooling_updateGradInput)(
 {
   bool atomic = true; // suboptimal, but without atomic it doesn't pass the tests
 
-  THCUNN_assertSameGPU_generic(state, 4, input, indices, gradOutput, gradInput);
+  THCUNN_assertSameGPU(state, 4, input, indices, gradOutput, gradInput);
 
   THCIndex_t *indices_data;
   real *gradInput_data;

@@ -7,9 +7,10 @@ void THNN_(L1Cost_updateOutput)(
            THCTensor *input,
            THCTensor *output)
 {
-  THCUNN_assertSameGPU_generic(state, 1, input);
+  THCUNN_check_dim_size(state, output, 1, 0, 1);
+  THCUNN_assertSameGPU(state, 1, input);
   accreal sum;
-  long size = THCTensor_(nElement)(state, input);
+  ptrdiff_t size = THCTensor_(nElement)(state, input);
   input = THCTensor_(newContiguous)(state, input);
   thrust::device_ptr<real> input_data(THCTensor_(data)(state, input));
   sum = thrust::transform_reduce(input_data, input_data+size, l1cost_functor<real, accreal>(), accreal(0), thrust::plus<accreal>());
@@ -25,8 +26,9 @@ void THNN_(L1Cost_updateGradInput)(
            THCTensor *gradOutput,
            THCTensor *gradInput)
 {
-  THCUNN_assertSameGPU_generic(state, 2, input, gradInput);
-  long size = THCTensor_(nElement)(state, input);
+  THCUNN_check_nElement(state, input, gradOutput);
+  THCUNN_assertSameGPU(state, 2, input, gradInput);
+  ptrdiff_t size = THCTensor_(nElement)(state, input);
 
   input = THCTensor_(newContiguous)(state, input);
   THCTensor_(resizeAs)(state, gradInput, input);

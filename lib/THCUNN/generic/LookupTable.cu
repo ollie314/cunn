@@ -14,7 +14,7 @@ void THNN_(LookupTable_accGradParameters)(
            int paddingValue,
            real scale)
 {
-  THCUNN_assertSameGPU_generic(state, 5, input, gradOutput, gradWeight, sorted, indices);
+  THCUNN_assertSameGPU(state, 5, input, gradOutput, gradWeight, sorted, indices);
   if (!(THCIndexTensor_(isContiguous)(state, input) &&
         THCTensor_(isContiguous)(state, gradOutput) &&
         THCTensor_(isContiguous)(state, gradWeight)))
@@ -23,10 +23,12 @@ void THNN_(LookupTable_accGradParameters)(
   }
 
   int nDim = THCIndexTensor_(nDimension)(state, input);
-  if (nDim != 1 && nDim != 2)
-    THError("input must be a vector or matrix");
+  if (THCIndexTensor_(nDimension)(state, input) != 1 && THCIndexTensor_(nDimension)(state, input) != 2) {
+    THCDescBuff s1 = THCIndexTensor_(sizeDesc)(state, input);
+    THError("input must be a vector or matrix, but is of shape: %s", s1.str);
+  }
 
-  long numel = THCIndexTensor_(nElement)(state, input);
+  ptrdiff_t numel = THCIndexTensor_(nElement)(state, input);
   long stride = gradWeight->stride[0];
 
   cudaStream_t stream = THCState_getCurrentStream(state);
@@ -116,7 +118,7 @@ void THNN_(LookupTable_renorm)(
            real maxNorm,
            real normType)
 {
-  THCUNN_assertSameGPU_generic(state, 2, idx, weight);
+  THCUNN_assertSameGPU(state, 2, idx, weight);
   if (!(THCIndexTensor_(isContiguous)(state, idx) &&
         THCTensor_(isContiguous)(state, weight)))
   {
@@ -139,7 +141,7 @@ void THNN_(LookupTable_renorm)(
   pow_v<real, accreal> unary_pow(normType);
   thrust::plus<accreal> binary_plus;
   // numel << stride, since idx usually contains sparse row indices
-  for (long i = 0; i < numel; i++)
+  for (THCIndex_t i = 0; i < numel; i++)
   {
     THCIndex_t k = idx_ptr[i] - TH_INDEX_BASE;
     thrust::device_ptr<real> row_ptr = weight_ptr + k * stride;

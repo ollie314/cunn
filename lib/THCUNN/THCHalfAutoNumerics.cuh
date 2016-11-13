@@ -7,10 +7,9 @@
 // Half numerics functions defined as free functions, so cunn code can be
 //written generically, i.e. without excessive calling of THCNumerics<half> functions.
 
-#ifdef CUDA_HALF_TENSOR
-
 // these functions should move to THCNumerics
 
+#ifdef CUDA_HALF_TENSOR
 inline __host__ __device__ half fmaxType(half x, half y) {
   return THCNumerics<half>::ge(x, y) ? x : y;
 }
@@ -18,6 +17,7 @@ inline __host__ __device__ half fmaxType(half x, half y) {
 inline __host__ __device__ float fmaxType(float x, half y) {
   return fmaxf(x, ScalarConvert<half, float>::to(y));
 }
+#endif
 
 inline __host__ __device__ float fmaxType(float x, float y) {
   return fmaxf(x, y);
@@ -27,33 +27,7 @@ inline __host__ __device__ double fmaxType(double x, double y) {
   return fmax(x, y);
 }
 
-inline __host__ __device__ half mul(half a, half b) {
-  #ifdef __CUDA_ARCH__
-  #ifdef CUDA_HALF_INSTRUCTIONS
-    return __hmul(a, b);
-  #else
-    float fa = __half2float(a);
-    float fb = __half2float(b);
-    return __float2half( fa * fb );
-  #endif
-  #else // __CUDA_ARCH__
-    return THC_float2half(THC_half2float(a) * THC_half2float(b));
-  #endif
-}
-
-inline __host__ __device__ half div(half a, half b) {
-  #ifdef __CUDA_ARCH__
-  #ifdef CUDA_HALF_INSTRUCTIONS
-    return __hdiv(a, b);
-  #else
-    float fa = __half2float(a);
-    float fb = __half2float(b);
-    return __float2half( fa / fb );
-  #endif
-  #else // __CUDA_ARCH__
-    return THC_float2half(THC_half2float(a) / THC_half2float(b));
-  #endif
-}
+#ifdef CUDA_HALF_TENSOR
 
 // arithmetic functions
 
@@ -106,7 +80,7 @@ inline __host__ __device__ double operator-(double a, half b) {
 }
 
 inline __host__ __device__ half operator*(half a, half b) {
-  return mul(a, b);
+  return THCNumerics<half>::mul(a, b);
 }
 
 inline __host__ __device__ float operator*(half a, float b) {
@@ -130,7 +104,7 @@ inline __host__ __device__ double operator*(double a, half b) {
 }
 
 inline __host__ __device__ half operator/(half a, half b) {
-  return div(a, b);
+  return THCNumerics<half>::div(a, b);
 }
 
 inline __host__ __device__ float operator/(float a, half b) {

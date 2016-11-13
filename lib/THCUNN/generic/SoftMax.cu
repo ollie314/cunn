@@ -9,7 +9,7 @@ void THNN_(SoftMax_updateOutput)(
            THCTensor *input,
            THCTensor *output)
 {
-  THCUNN_assertSameGPU_generic(state, 2, input, output);
+  THCUNN_assertSameGPU(state, 2, input, output);
 
   input = THCTensor_(newContiguous)(state, input);
   THCTensor_(resizeAs)(state, output, input);
@@ -81,7 +81,8 @@ void THNN_(SoftMax_updateGradInput)(
            THCTensor *gradInput,
            THCTensor *output)
 {
-  THCUNN_assertSameGPU_generic(state, 3, output, gradOutput, gradInput);
+  THCUNN_check_nElement(state, input, gradOutput);
+  THCUNN_assertSameGPU(state, 3, output, gradOutput, gradInput);
 
   output = THCTensor_(newContiguous)(state, output);
   gradOutput = THCTensor_(newContiguous)(state, gradOutput);

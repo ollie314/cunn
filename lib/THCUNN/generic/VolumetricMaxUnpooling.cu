@@ -17,7 +17,7 @@ void THNN_(VolumetricMaxUnpooling_updateOutput)(
   int inputHeight;
   int inputWidth;
 
-  THCUNN_assertSameGPU_generic(state, 3, input, indices, output);
+  THCUNN_assertSameGPU(state, 3, input, indices, output);
 
   if (THCTensor_(nDimension)(state, input) == 4)
   {
@@ -39,7 +39,8 @@ void THNN_(VolumetricMaxUnpooling_updateOutput)(
   }
   else
   {
-    THArgCheck(false, 2, "4D or 5D tensor expected");
+    THArgCheck(false, 2, "4D or 5D tensor expected, got %d",
+               THCTensor_(nDimension)(state, input));
   }
 
   if (input->nDimension == 4) /* 4D */
@@ -116,7 +117,8 @@ void THNN_(VolumetricMaxUnpooling_updateGradInput)(
   int inputHeight;
   int inputWidth;
 
-  THCUNN_assertSameGPU_generic(state, 4, input, indices, gradOutput, gradInput);
+  // TODO: check gradOutput shape
+  THCUNN_assertSameGPU(state, 4, input, indices, gradOutput, gradInput);
 
   if (THCTensor_(nDimension)(state, input) == 4) /* 4D */
   {

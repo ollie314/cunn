@@ -12,17 +12,21 @@ void THNN_(SpatialClassNLLCriterion_updateOutput)(
            THCTensor *total_weight)
 {
   THArgCheck(THCIndexTensor_(nDimension)(state, target) == 3, 1,
-               "only batches of spatial targets supported (3D tensors)");
+             "only batches of spatial targets supported (3D tensors)" \
+             " but got targets of dimension: %d",
+             THCIndexTensor_(nDimension)(state, target));
   THArgCheck(THCTensor_(nDimension)(state, input) == 4, 2,
-               "only batches of spatial inputs supported (4D tensors)");
+             "only batches of spatial inputs supported (4D tensors), "      \
+             "but got input of dimension: %d", THCTensor_(nDimension)(state, input));
+
   if (weights && THCTensor_(nElement)(state, weights) != THCTensor_(size)(state, input, 1)) {
     THError("weight tensor should be defined either for all or no classes");
   }
 
   if (weights)
-    THCUNN_assertSameGPU_generic(state, 5, input, target, weights, output, total_weight);
+    THCUNN_assertSameGPU(state, 5, input, target, weights, output, total_weight);
   else
-    THCUNN_assertSameGPU_generic(state, 4, input, target, output, total_weight);
+    THCUNN_assertSameGPU(state, 4, input, target, output, total_weight);
 
   input = THCTensor_(newContiguous)(state, input);
   weights = weights ? THCTensor_(newContiguous)(state, weights) : NULL;
@@ -74,19 +78,19 @@ void THNN_(SpatialClassNLLCriterion_updateGradInput)(
            THCTensor *total_weight)
 {
   THArgCheck(THCIndexTensor_(nDimension)(state, target) == 3, 1,
-               "only batches of spatial targets supported (3D tensors)");
+             "only batches of spatial targets supported (3D tensors)");
   THArgCheck(THCTensor_(nDimension)(state, input) == 4, 2,
-               "only batches of spatial inputs supported (4D tensors)");
+             "only batches of spatial inputs supported (4D tensors)");
   THArgCheck(THCTensor_(isContiguous)(state, gradInput), 4,
-               "gradInput must be contiguous");
+             "gradInput must be contiguous");
   if (weights && THCTensor_(nElement)(state, weights) != THCTensor_(size)(state, input, 1)) {
     THError("weight tensor should be defined either for all or no classes");
   }
 
   if (weights)
-    THCUNN_assertSameGPU_generic(state, 5, weights, input, target, gradInput, total_weight);
+    THCUNN_assertSameGPU(state, 5, weights, input, target, gradInput, total_weight);
   else
-    THCUNN_assertSameGPU_generic(state, 4, input, target, gradInput, total_weight);
+    THCUNN_assertSameGPU(state, 4, input, target, gradInput, total_weight);
 
   input = THCTensor_(newContiguous)(state, input);
   weights = weights ? THCTensor_(newContiguous)(state, weights) : NULL;

@@ -15,7 +15,7 @@ void THNN_(RReLU_updateOutput)(
            bool inplace,
            void *generator)
 {
-  THCUNN_assertSameGPU_generic(state, 3, input, output, noise);
+  THCUNN_assertSameGPU(state, 3, input, output, noise);
   struct curandStateMtgp32* gen_states = THCRandom_generatorStates(state);
 
   if (train)
@@ -24,7 +24,7 @@ void THNN_(RReLU_updateOutput)(
     THCTensor_(resizeAs)(state, noise, input);
     real *input_data = THCTensor_(data)(state, input);
     real *noise_data = THCTensor_(data)(state, noise);
-    long n = THCTensor_(nElement)(state, input);
+    ptrdiff_t n = THCTensor_(nElement)(state, input);
     if (inplace)
     {
       rreluUpdateOutputTrain<<<NUM_BLOCKS(n), BLOCK_SIZE, 0, THCState_getCurrentStream(state)>>>(
@@ -68,7 +68,8 @@ void THNN_(RReLU_updateGradInput)(
            bool train,
            bool inplace)
 {
-  THCUNN_assertSameGPU_generic(state, 4, input, gradOutput, gradInput, noise);
+  THCUNN_check_nElement(state, input, gradOutput);
+  THCUNN_assertSameGPU(state, 4, input, gradOutput, gradInput, noise);
 
   gradOutput = THCTensor_(newContiguous)(state, gradOutput);
 

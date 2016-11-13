@@ -10,6 +10,9 @@ void THNN_(ClassNLLCriterion_updateOutput)(
            bool sizeAverage,
            THCTensor *weights,
            THCTensor *total_weight) {
+  THCUNN_check_dim_size(state, output, 1, 0, 1);
+  THCUNN_check_dim_size(state, total_weight, 1, 0, 1);
+
   if (THCIndexTensor_(nDimension)(state, target) > 1) {
     THError("multi-target not supported");
   }
@@ -18,11 +21,11 @@ void THNN_(ClassNLLCriterion_updateOutput)(
   int n_classes = THCTensor_(size)(state, input, n_dims - 1);
 
   if (weights) {
-    THCUNN_assertSameGPU_generic(
+    THCUNN_assertSameGPU(
       state, 5, input, target, weights, output, total_weight
     );
   } else {
-    THCUNN_assertSameGPU_generic(
+    THCUNN_assertSameGPU(
       state, 4, input, target, output, total_weight
     );
   }
@@ -31,7 +34,9 @@ void THNN_(ClassNLLCriterion_updateOutput)(
     THArgCheck(0, 2, "vector or matrix expected");
   }
   if (weights && THCTensor_(nElement)(state, weights) != n_classes) {
-    THError("weight tensor should be defined either for all or no classes");
+    THCDescBuff s1 = THCTensor_(sizeDesc)(state, weights);
+    THError("weight tensor should be defined either for all %d classes or no classes"
+            " but got weight tensor of shape: %s", n_classes, s1.str);
   }
 
   input = THCTensor_(newContiguous)(state, input);

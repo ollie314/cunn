@@ -2,6 +2,63 @@
 #define THC_GENERIC_FILE "generic/SpatialDilatedConvolution.cu"
 #else
 
+static inline void THNN_(SpatialDilatedConvolution_shapeCheck)(
+                         THCState *state,
+                         THCTensor *input, THCTensor *gradOutput,
+                         THCTensor *weight, THCTensor *bias,
+                         int kH, int kW, int dH, int dW, int padH, int padW,
+                         int dilationH, int dilationW) {
+
+  THCUNN_argCheck(state, weight->nDimension == 4, 4, weight,
+		              "4D weight tensor (nOutputPlane,nInputPlane,kH,kW) expected, "
+		              "but got: %s");
+  THArgCheck(kW > 0 && kH > 0, 9,
+	           "kernel size should be greater than zero, but got kH: %d kW: %d", kH, kW);
+  THArgCheck(dW > 0 && dH > 0, 11,
+             "stride should be greater than zero, but got dH: %d dW: %d", dH, dW);
+  THArgCheck(dilationW > 0 && dilationH > 0, 14,
+             "dilation should be greater than 0, but got dilationH: %d dilationW: %d",
+             dilationH, dilationW);
+
+   if (bias != NULL) {
+     THCUNN_check_dim_size(state, bias, 1, 0, weight->size[0]);
+   }
+
+   int ndim = input->nDimension;
+   int dimf = 0;
+   int dimh = 1;
+   int dimw = 2;
+
+   if (ndim == 4) {
+     dimf++;
+     dimh++;
+     dimw++;
+   }
+
+   THCUNN_argCheck(state, ndim == 3 || ndim == 4, 2, input,
+                   "3D or 4D input tensor expected but got: %s");
+
+   long nInputPlane  = weight->size[1];
+   long inputHeight  = input->size[dimh];
+   long inputWidth   = input->size[dimw];
+   long nOutputPlane = weight->size[0];
+   long outputHeight = (inputHeight + 2*padH - (dilationH * (kH - 1) + 1)) / dH + 1;
+   long outputWidth  = (inputWidth + 2*padW - (dilationW * (kW - 1) + 1)) / dW + 1;
+
+   if (outputWidth < 1 || outputHeight < 1)
+     THError("Given input size: (%ld x %ld x %ld). "
+             "Calculated output size: (%ld x %ld x %ld). Output size is too small",
+             nInputPlane,inputHeight,inputWidth,nOutputPlane,outputHeight,outputWidth);
+
+   THCUNN_check_dim_size(state, input, ndim, dimf, nInputPlane);
+
+   if (gradOutput != NULL) {
+     THCUNN_check_dim_size(state, gradOutput, ndim, dimf, nOutputPlane);
+     THCUNN_check_dim_size(state, gradOutput, ndim, dimh, outputHeight);
+     THCUNN_check_dim_size(state, gradOutput, ndim, dimw, outputWidth);
+   }
+}
+
 void THNN_(SpatialDilatedConvolution_updateOutput)(
            THCState *state,
            THCTensor *input,
@@ -15,16 +72,13 @@ void THNN_(SpatialDilatedConvolution_updateOutput)(
            int padW, int padH,
            int dilationW, int dilationH) {
 
-  THCUNN_assertSameGPU_generic(state, 5, input, output, weight, columns, ones);
+  THCUNN_assertSameGPU(state, 5, input, output, weight, columns, ones);
   if (bias) {
-    THCUNN_assertSameGPU_generic(state, 2, weight, bias);
+    THCUNN_assertSameGPU(state, 2, weight, bias);
   }
-  THArgCheck(input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
-  THArgCheck(weight->nDimension == 4, 4, "weight tensor must be 4D (nOutputPlane,nInputPlane,kH,kW)");
-  THArgCheck(!bias || weight->size[0] == bias->size[0], 4, "nOutputPlane mismatch in weight and bias");
-  THArgCheck(kW > 0 && kH > 0, 8, "kernel size should be greater than zero");
-  THArgCheck(dW > 0 && dH > 0, 10, "stride should be greater than zero");
-  THArgCheck(dilationW > 0 && dilationH > 0, 14, "dilation should be greater than 0");
+  THNN_(SpatialDilatedConvolution_shapeCheck)
+       (state, input, NULL, weight, bias, kH, kW, dH, dW, padH, padW,
+        dilationH, dilationW);
 
   // Params:
   int nInputPlane = weight->size[1];
@@ -32,22 +86,15 @@ void THNN_(SpatialDilatedConvolution_updateOutput)(
 
   int batch = 1;
   if (input->nDimension == 3) {
-    THArgCheck(input->size[0] == nInputPlane, 2, "input channels and nInputPlane dont match");
     // Force batch
     batch = 0;
     THCTensor_(resize4d)(state, input, 1, input->size[0], input->size[1], input->size[2]);
-  } else {
-    THArgCheck(input->size[1] == nInputPlane, 2, "input channels and nInputPlane dont match");
   }
 
   long inputWidth   = input->size[3];
   long inputHeight  = input->size[2];
   long outputWidth  = (inputWidth + 2*padW - (dilationW * (kW - 1) + 1)) / dW + 1;
   long outputHeight = (inputHeight + 2*padH - (dilationH * (kH - 1) + 1)) / dH + 1;
-
-  if (outputWidth < 1 || outputHeight < 1)
-    THError("Given input size: (%dx%dx%d). Calculated output size: (%dx%dx%d). Output size is too small",
-        nInputPlane,inputHeight,inputWidth,nOutputPlane,outputHeight,outputWidth);
 
   // Batch size + input planes
   long batchSize = input->size[0];
@@ -163,12 +210,11 @@ void THNN_(SpatialDilatedConvolution_updateGradInput)(
            int padW, int padH,
            int dilationW, int dilationH) {
 
-  THCUNN_assertSameGPU_generic(state, 5, input, gradOutput, weight,
-                                 gradColumns, gradInput);
-  THArgCheck(input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
-  THArgCheck(weight->nDimension == 4, 4, "weight tensor must be 4D (nOutputPlane,nInputPlane,kH,kW)");
-  THArgCheck(kW > 0 && kH > 0, 9, "kernel size should be greater than zero");
-  THArgCheck(dW > 0 && dH > 0, 11, "stride should be greater than zero");
+  THCUNN_assertSameGPU(state, 5, input, gradOutput, weight,
+                       gradColumns, gradInput);
+  THNN_(SpatialDilatedConvolution_shapeCheck)
+       (state, input, gradOutput, weight, NULL, kH, kW, dH, dW, padH, padW,
+        dilationH, dilationW);
 
   // Params
   int nInputPlane = weight->size[1];
@@ -266,15 +312,13 @@ void THNN_(SpatialDilatedConvolution_accGradParameters)(
            int dilationW, int dilationH,
            real scale) {
 
-  THCUNN_assertSameGPU_generic(state, 5, input, gradOutput, gradWeight, columns, ones);
+  THCUNN_assertSameGPU(state, 5, input, gradOutput, gradWeight, columns, ones);
   if (gradBias) {
-   THCUNN_assertSameGPU_generic(state, 2, gradWeight, gradBias);
+   THCUNN_assertSameGPU(state, 2, gradWeight, gradBias);
   }
-  THArgCheck(input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
-  THArgCheck(gradWeight->nDimension == 4, 4, "gradWeight tensor must be 4D (nOutputPlane,nInputPlane,kH,kW)");
-  THArgCheck(!gradBias || gradWeight->size[0] == gradBias->size[0], 4, "nOutputPlane mismatch in gradWeight and gradBias");
-  THArgCheck(kW > 0 && kH > 0, 8, "kernel size should be greater than zero");
-  THArgCheck(dW > 0 && dH > 0, 10, "stride should be greater than zero");
+  THNN_(SpatialDilatedConvolution_shapeCheck)
+       (state, input, gradOutput, gradWeight, gradBias, kH, kW, dH, dW, padH, padW,
+        dilationH, dilationW);
 
   // Params
   int nInputPlane = gradWeight->size[1];
